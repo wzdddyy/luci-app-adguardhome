@@ -60,6 +60,8 @@ set_iptable()
 {
 	local ipv6_server=$1
 	local tcp_server=$2
+	local comment="-m comment --comment 'AdGuardHome_DNS_Redirect'"
+	logger -t AdGuardHome "Debug: set_iptable called with ipv6_server=$ipv6_server, tcp_server=$tcp_server, AdGuardHome_PORT=$AdGuardHome_PORT"
 	uci -q batch <<-EOF >/dev/null 2>&1
   delete firewall.AdGuardHome
 	set firewall.AdGuardHome=include
@@ -70,19 +72,23 @@ set_iptable()
 EOF
 
 	if command -v nft >/dev/null 2>&1 && nft list tables >/dev/null 2>&1; then
+		logger -t AdGuardHome "Debug: Using nftables"
 		set_nftable $ipv6_server $tcp_server
 		return
 	fi
 
+	logger -t AdGuardHome "Debug: Using iptables"
 	if [ "$tcp_server" == "1" ]; then
-		iptables -t nat -C PREROUTING -p tcp --dport 53 -j REDIRECT --to-ports $AdGuardHome_PORT >/dev/null 2>&1
+		iptables -t nat -C PREROUTING -p tcp --dport 53 -j REDIRECT --to-ports $AdGuardHome_PORT $comment >/dev/null 2>&1
 		if [ $? -ne 0 ]; then
-			iptables -t nat -A PREROUTING -p tcp --dport 53 -j REDIRECT --to-ports $AdGuardHome_PORT >/dev/null 2>&1
+			logger -t AdGuardHome "Debug: Adding iptables TCP redirect rule for port $AdGuardHome_PORT"
+			iptables -t nat -A PREROUTING -p tcp --dport 53 -j REDIRECT --to-ports $AdGuardHome_PORT $comment >/dev/null 2>&1
 		fi
 	fi
-	iptables -t nat -C PREROUTING -p udp --dport 53 -j REDIRECT --to-ports $AdGuardHome_PORT >/dev/null 2>&1
+	iptables -t nat -C PREROUTING -p udp --dport 53 -j REDIRECT --to-ports $AdGuardHome_PORT $comment >/dev/null 2>&1
 	if [ $? -ne 0 ]; then
-		iptables -t nat -A PREROUTING -p udp --dport 53 -j REDIRECT --to-ports $AdGuardHome_PORT >/dev/null 2>&1
+		logger -t AdGuardHome "Debug: Adding iptables UDP redirect rule for port $AdGuardHome_PORT"
+		iptables -t nat -A PREROUTING -p udp --dport 53 -j REDIRECT --to-ports $AdGuardHome_PORT $comment >/dev/null 2>&1
 	fi
 
 	if [ "$ipv6_server" == 0 ]; then
@@ -90,15 +96,18 @@ EOF
 	fi
 
 	if [ "$tcp_server" == "1" ]; then
-		ip6tables -t nat -C PREROUTING -p tcp --dport 53 -j REDIRECT --to-ports $AdGuardHome_PORT >/dev/null 2>&1
+		ip6tables -t nat -C PREROUTING -p tcp --dport 53 -j REDIRECT --to-ports $AdGuardHome_PORT $comment >/dev/null 2>&1
 		if [ $? -ne 0 ]; then
-			ip6tables -t nat -A PREROUTING -p tcp --dport 53 -j REDIRECT --to-ports $AdGuardHome_PORT >/dev/null 2>&1
+			logger -t AdGuardHome "Debug: Adding ip6tables TCP redirect rule for port $AdGuardHome_PORT"
+			ip6tables -t nat -A PREROUTING -p tcp --dport 53 -j REDIRECT --to-ports $AdGuardHome_PORT $comment >/dev/null 2>&1
 		fi
 	fi
-	ip6tables -t nat -C PREROUTING -p udp --dport 53 -j REDIRECT --to-ports $AdGuardHome_PORT >/dev/null 2>&1
+	ip6tables -t nat -C PREROUTING -p udp --dport 53 -j REDIRECT --to-ports $AdGuardHome_PORT $comment >/dev/null 2>&1
 	if [ $? -ne 0 ]; then
-		ip6tables -t nat -A PREROUTING -p udp --dport 53 -j REDIRECT --to-ports $AdGuardHome_PORT >/dev/null 2>&1
+		logger -t AdGuardHome "Debug: Adding ip6tables UDP redirect rule for port $AdGuardHome_PORT"
+		ip6tables -t nat -A PREROUTING -p udp --dport 53 -j REDIRECT --to-ports $AdGuardHome_PORT $comment >/dev/null 2>&1
 	fi
+	logger -t AdGuardHome "Info: Firewall redirect rules added successfully with comment"
 
 }
 
@@ -106,29 +115,40 @@ set_nftable()
 {
 	local ipv6_server=$1
 	local tcp_server=$2
+	local comment="comment \"AdGuardHome_DNS_Redirect\""
+	logger -t AdGuardHome "Debug: set_nftable called with ipv6=$ipv6_server, tcp=$tcp_server, port=$AdGuardHome_PORT"
 
-	nft list tables ip 2>/dev/null | grep -q "nat" || nft add table ip nat
-	nft list chains ip nat 2>/dev/null | grep -q "PREROUTING" || nft add chain ip nat PREROUTING '{ type nat hook prerouting priority -100; }'
-	nft list chains ip nat 2>/dev/null | grep -q "POSTROUTING" || nft add chain ip nat POSTROUTING '{ type nat hook postrouting priority 100; }'
+	nft list tables ip 2>/dev/null | grep -q "nat" || nft add table ip nat 2>/dev/null
+	nft list chains ip nat 2>/dev/null | grep -q "PREROUTING" || nft add chain ip nat PREROUTING '{ type nat hook prerouting priority -100; }' 2>/dev/null
+	nft list chains ip nat 2>/dev/null | grep -q "POSTROUTING" || nft add chain ip nat POSTROUTING '{ type nat hook postrouting priority 100; }' 2>/dev/null
 
+	logger -t AdGuardHome "Debug: Adding IPv4 nftables rules"
 	if [ "$tcp_server" == "1" ]; then
-		nft list chain ip nat PREROUTING 2>/dev/null | grep -q "tcp dport 53 redirect to :$AdGuardHome_PORT" || nft add rule ip nat PREROUTING tcp dport 53 redirect to :$AdGuardHome_PORT >/dev/null 2>&1
+		nft list chain ip nat PREROUTING 2>/dev/null | grep -q "tcp dport 53 comment \"AdGuardHome_DNS_Redirect\"" || \
+			nft add rule ip nat PREROUTING tcp dport 53 redirect to :$AdGuardHome_PORT $comment >/dev/null 2>&1
+		logger -t AdGuardHome "Debug: Added IPv4 TCP nftable rule"
 	fi
-	nft list chain ip nat PREROUTING 2>/dev/null | grep -q "udp dport 53 redirect to :$AdGuardHome_PORT" || nft add rule ip nat PREROUTING udp dport 53 redirect to :$AdGuardHome_PORT >/dev/null 2>&1
+	nft list chain ip nat PREROUTING 2>/dev/null | grep -q "udp dport 53 comment \"AdGuardHome_DNS_Redirect\"" || \
+		nft add rule ip nat PREROUTING udp dport 53 redirect to :$AdGuardHome_PORT $comment >/dev/null 2>&1
+	logger -t AdGuardHome "Debug: Added IPv4 UDP nftable rule"
 
-	if [ "$ipv6_server" == 0 ]; then
-		return
+	# 只有在启用 IPv6 时才添加 IPv6 规则
+	if [ "$ipv6_server" != "0" ]; then
+		logger -t AdGuardHome "Debug: Adding IPv6 nftables rules"
+		nft list tables ip6 2>/dev/null | grep -q "nat" || nft add table ip6 nat 2>/dev/null
+		nft list chains ip6 nat 2>/dev/null | grep -q "PREROUTING" || nft add chain ip6 nat PREROUTING '{ type nat hook prerouting priority -100; }' 2>/dev/null
+
+		if [ "$tcp_server" == "1" ]; then
+			nft list chain ip6 nat PREROUTING 2>/dev/null | grep -q "tcp dport 53 comment \"AdGuardHome_DNS_Redirect\"" || \
+				nft add rule ip6 nat PREROUTING tcp dport 53 redirect to :$AdGuardHome_PORT $comment >/dev/null 2>&1
+			logger -t AdGuardHome "Debug: Added IPv6 TCP nftable rule"
+		fi
+		nft list chain ip6 nat PREROUTING 2>/dev/null | grep -q "udp dport 53 comment \"AdGuardHome_DNS_Redirect\"" || \
+			nft add rule ip6 nat PREROUTING udp dport 53 redirect to :$AdGuardHome_PORT $comment >/dev/null 2>&1
+		logger -t AdGuardHome "Debug: Added IPv6 UDP nftable rule"
+	else
+		logger -t AdGuardHome "Debug: Skipping IPv6 rules (disabled)"
 	fi
-
-	if [ "$tcp_server" == "1" ]; then
-		nft list tables ip6 2>/dev/null | grep -q "nat" || nft add table ip6 nat
-		nft list chains ip6 nat 2>/dev/null | grep -q "PREROUTING" || nft add chain ip6 nat PREROUTING '{ type nat hook prerouting priority -100; }'
-		nft list chain ip6 nat PREROUTING 2>/dev/null | grep -q "tcp dport 53 redirect to :$AdGuardHome_PORT" || nft add rule ip6 nat PREROUTING tcp dport 53 redirect to :$AdGuardHome_PORT >/dev/null 2>&1
-	fi
-	nft list tables ip6 2>/dev/null | grep -q "nat" || nft add table ip6 nat
-	nft list chains ip6 nat 2>/dev/null | grep -q "PREROUTING" || nft add chain ip6 nat PREROUTING '{ type nat hook prerouting priority -100; }'
-	nft list chain ip6 nat PREROUTING 2>/dev/null | grep -q "udp dport 53 redirect to :$AdGuardHome_PORT" || nft add rule ip6 nat PREROUTING udp dport 53 redirect to :$AdGuardHome_PORT >/dev/null 2>&1
-
 }
 
 clear_iptable()
@@ -139,51 +159,80 @@ clear_iptable()
 EOF
 	local OLD_PORT="$1"
 	local ipv6_server=$2
+	local comment="--comment 'AdGuardHome_DNS_Redirect'"
+	logger -t AdGuardHome "Debug: Clearing iptables rules for port $OLD_PORT with comment"
 
 	if command -v nft >/dev/null 2>&1 && nft list tables >/dev/null 2>&1; then
 		clear_nftable $OLD_PORT $ipv6_server
 	else
-		# 删除 IPv4 规则（循环删除所有匹配的规则）
-		while iptables -t nat -C PREROUTING -p udp --dport 53 -j REDIRECT --to-ports $OLD_PORT >/dev/null 2>&1; do
-			iptables -t nat -D PREROUTING -p udp --dport 53 -j REDIRECT --to-ports $OLD_PORT >/dev/null 2>&1
+		while iptables -t nat -C PREROUTING -p udp --dport 53 -j REDIRECT $comment >/dev/null 2>&1; do
+			iptables -t nat -D PREROUTING -p udp --dport 53 -j REDIRECT $comment >/dev/null 2>&1
+			logger -t AdGuardHome "Debug: Deleted IPv4 UDP rule"
 		done
-		while iptables -t nat -C PREROUTING -p tcp --dport 53 -j REDIRECT --to-ports $OLD_PORT >/dev/null 2>&1; do
-			iptables -t nat -D PREROUTING -p tcp --dport 53 -j REDIRECT --to-ports $OLD_PORT >/dev/null 2>&1
+		
+		while iptables -t nat -C PREROUTING -p tcp --dport 53 -j REDIRECT $comment >/dev/null 2>&1; do
+			iptables -t nat -D PREROUTING -p tcp --dport 53 -j REDIRECT $comment >/dev/null 2>&1
+			logger -t AdGuardHome "Debug: Deleted IPv4 TCP rule"
 		done
 
 		if [ "$ipv6_server" != 0 ]; then
-			echo "warn ip6tables nat mod is needed"
-			# 删除 IPv6 规则（循环删除所有匹配的规则）
-			while ip6tables -t nat -C PREROUTING -p udp --dport 53 -j REDIRECT --to-ports $OLD_PORT >/dev/null 2>&1; do
-				ip6tables -t nat -D PREROUTING -p udp --dport 53 -j REDIRECT --to-ports $OLD_PORT >/dev/null 2>&1
+			while ip6tables -t nat -C PREROUTING -p udp --dport 53 -j REDIRECT $comment >/dev/null 2>&1; do
+				ip6tables -t nat -D PREROUTING -p udp --dport 53 -j REDIRECT $comment >/dev/null 2>&1
+				logger -t AdGuardHome "Debug: Deleted IPv6 UDP rule"
 			done
-			while ip6tables -t nat -C PREROUTING -p tcp --dport 53 -j REDIRECT --to-ports $OLD_PORT >/dev/null 2>&1; do
-				ip6tables -t nat -D PREROUTING -p tcp --dport 53 -j REDIRECT --to-ports $OLD_PORT >/dev/null 2>&1
+			
+			while ip6tables -t nat -C PREROUTING -p tcp --dport 53 -j REDIRECT $comment >/dev/null 2>&1; do
+				ip6tables -t nat -D PREROUTING -p tcp --dport 53 -j REDIRECT $comment >/dev/null 2>&1
+				logger -t AdGuardHome "Debug: Deleted IPv6 TCP rule"
 			done
 		fi
 	fi
+	logger -t AdGuardHome "Info: Firewall rules cleared successfully using comment"
 }
 
 clear_nftable()
 {
 	local OLD_PORT="$1"
 	local ipv6_server=$2
-	local handle
-
-	# 删除 IPv4 规则（使用 handle）
-	for handle in $(nft -a list chain ip nat PREROUTING 2>/dev/null | grep "redirect to :$OLD_PORT" | grep -oE "handle [0-9]+" | awk '{print $2}'); do
-		nft delete rule ip nat PREROUTING handle $handle >/dev/null 2>&1
+	
+	logger -t AdGuardHome "Debug: Clearing nftables rules"
+	
+	# 总是清理 IPv4 规则
+	logger -t AdGuardHome "Debug: Clearing IPv4 nftables rules"
+	while :; do
+		local handle=$(nft -a list chain ip nat PREROUTING 2>/dev/null | grep -E "udp.*dport.*53.*redirect to.*:$OLD_PORT.*comment \"AdGuardHome_DNS_Redirect\"" | grep -oE "handle [0-9]+" | head -1 | awk '{print $2}')
+		[ -z "$handle" ] && break
+		nft delete rule ip nat PREROUTING handle $handle 2>/dev/null
+		logger -t AdGuardHome "Debug: Deleted IPv4 UDP nftable rule"
+	done
+	
+	while :; do
+		local handle=$(nft -a list chain ip nat PREROUTING 2>/dev/null | grep -E "tcp.*dport.*53.*redirect to.*:$OLD_PORT.*comment \"AdGuardHome_DNS_Redirect\"" | grep -oE "handle [0-9]+" | head -1 | awk '{print $2}')
+		[ -z "$handle" ] && break
+		nft delete rule ip nat PREROUTING handle $handle 2>/dev/null
+		logger -t AdGuardHome "Debug: Deleted IPv4 TCP nftable rule"
 	done
 
-	if [ "$ipv6_server" == 0 ]; then
-		return
+	# 只有在启用 IPv6 时才清理 IPv6 规则
+	if [ "$ipv6_server" != "0" ]; then
+		logger -t AdGuardHome "Debug: Clearing IPv6 nftables rules"
+		while :; do
+			local handle=$(nft -a list chain ip6 nat PREROUTING 2>/dev/null | grep -E "udp.*dport.*53.*redirect to.*:$OLD_PORT.*comment \"AdGuardHome_DNS_Redirect\"" | grep -oE "handle [0-9]+" | head -1 | awk '{print $2}')
+			[ -z "$handle" ] && break
+			nft delete rule ip6 nat PREROUTING handle $handle 2>/dev/null
+			logger -t AdGuardHome "Debug: Deleted IPv6 UDP nftable rule"
+		done
+		
+		while :; do
+			local handle=$(nft -a list chain ip6 nat PREROUTING 2>/dev/null | grep -E "tcp.*dport.*53.*redirect to.*:$OLD_PORT.*comment \"AdGuardHome_DNS_Redirect\"" | grep -oE "handle [0-9]+" | head -1 | awk '{print $2}')
+			[ -z "$handle" ] && break
+			nft delete rule ip6 nat PREROUTING handle $handle 2>/dev/null
+			logger -t AdGuardHome "Debug: Deleted IPv6 TCP nftable rule"
+		done
+	else
+		logger -t AdGuardHome "Debug: Skipping IPv6 rules cleanup (disabled)"
 	fi
-
-	# 删除 IPv6 规则（使用 handle）
-	for handle in $(nft -a list chain ip6 nat PREROUTING 2>/dev/null | grep "redirect to :$OLD_PORT" | grep -oE "handle [0-9]+" | awk '{print $2}'); do
-		nft delete rule ip6 nat PREROUTING handle $handle >/dev/null 2>&1
-	done
-
+	logger -t AdGuardHome "Info: Nftables rules cleared successfully"
 }
 
 service_triggers() {
@@ -288,53 +337,63 @@ _do_redirect()
 		echo -n "0">/var/run/AdGredir
 	fi
 	config_get configpath $CONFIGURATION configpath "/etc/config/adGuardConfig/AdGuardHome.yaml"
+	logger -t AdGuardHome "Debug: configpath=$configpath"
+	
 	AdGuardHome_PORT=$(config_editor "dns.port" "" "$configpath" "1")
+	logger -t AdGuardHome "Debug: AdGuardHome_PORT from config_editor=$AdGuardHome_PORT"
+	
 	if [ -z "$AdGuardHome_PORT" ]; then
+		logger -t AdGuardHome "Warning: Could not read DNS port from config_editor, trying grep method"
+		AdGuardHome_PORT=$(grep -A 20 "^dns:" "$configpath" 2>/dev/null | grep "^[[:space:]]*port:" | head -1 | sed 's/.*port:[[:space:]]*//' | tr -d ' \r\n')
+		logger -t AdGuardHome "Debug: AdGuardHome_PORT from grep=$AdGuardHome_PORT"
+	fi
+	
+	if [ -z "$AdGuardHome_PORT" ]; then
+		logger -t AdGuardHome "Warning: Trying awk method"
+		AdGuardHome_PORT=$(awk '/^dns:/,0 { if (/^[[:space:]]+port:/) { gsub(/[^0-9]/, "", $2); print $2; exit } }' "$configpath" 2>/dev/null)
+		logger -t AdGuardHome "Debug: AdGuardHome_PORT from awk=$AdGuardHome_PORT"
+	fi
+	
+	if [ -z "$AdGuardHome_PORT" ]; then
+		logger -t AdGuardHome "Warning: Trying sed method"
+		AdGuardHome_PORT=$(sed -n '/^dns:/,/^[^[:space:]]/{/^[[:space:]]*port:/s/.*port:[[:space:]]*//p}' "$configpath" | head -1 | tr -d ' \r\n')
+		logger -t AdGuardHome "Debug: AdGuardHome_PORT from sed=$AdGuardHome_PORT"
+	fi
+	
+	if [ -z "$AdGuardHome_PORT" ]; then
+		logger -t AdGuardHome "Error: All methods failed to read DNS port"
 		AdGuardHome_PORT="0"
+	else
+		logger -t AdGuardHome "Success: Read DNS port=$AdGuardHome_PORT"
 	fi
+	
 	config_get "redirect" "$section" "redirect" "none"
-	config_get "old_redirect" "$section" "old_redirect" "none"
-	config_get "old_port" "$section" "old_port" "0"
-	config_get "old_enabled" "$section" "old_enabled" "0"
+	logger -t AdGuardHome "Debug: redirect=$redirect, enabled=$enabled"
 	uci get dhcp.@dnsmasq[0].port >/dev/null 2>&1 || uci set dhcp.@dnsmasq[0].port="53" >/dev/null 2>&1
-	if [ "$old_enabled" = "1" -a "$old_redirect" == "exchange" ]; then
-		AdGuardHome_PORT=$(uci get dhcp.@dnsmasq[0].port 2>/dev/null)
-	fi
 
 	# 当停止服务时，总是清理规则
-	if [ "$old_enabled" = "1" -a "$enabled" = "0" ]; then
-		if [ "$old_redirect" != "none" ]; then
-			if [ "$old_redirect" == "redirect" ]; then
-				clear_iptable "$old_port" "$ipv6_server"
-			elif [ "$old_redirect" == "dnsmasq-upstream" ]; then
-				stop_forward_dnsmasq "$old_port"
-			elif [ "$old_redirect" == "exchange" ]; then
-				rm_port53
-			fi
-		fi
-	# 当重定向方式改变或端口改变时，清理旧规则
-	elif [ "$old_redirect" != "$redirect" ] || [ "$old_port" != "$AdGuardHome_PORT" ]; then
-		if [ "$old_redirect" != "none" ]; then
-			if [ "$old_redirect" == "redirect" ]; then
-				clear_iptable "$old_port" "$ipv6_server"
-			elif [ "$old_redirect" == "dnsmasq-upstream" ]; then
-				stop_forward_dnsmasq "$old_port"
-			elif [ "$old_redirect" == "exchange" ]; then
-				rm_port53
-			fi
-		fi
-	fi
-	uci delete AdGuardHome.@AdGuardHome[0].old_redirect 2>/dev/null
-	uci delete AdGuardHome.@AdGuardHome[0].old_port 2>/dev/null
-	uci delete AdGuardHome.@AdGuardHome[0].old_enabled 2>/dev/null
-	uci set AdGuardHome.@AdGuardHome[0].old_redirect="$redirect" 2>/dev/null
-	uci set AdGuardHome.@AdGuardHome[0].old_port="$AdGuardHome_PORT" 2>/dev/null
-	uci set AdGuardHome.@AdGuardHome[0].old_enabled="$enabled" 2>/dev/null
-	uci commit AdGuardHome
-	[ "$enabled" == "0" ] && return 1
-	if [ "$AdGuardHome_PORT" == "0" ]; then
+	if [ "$enabled" = "0" ]; then
+		logger -t AdGuardHome "Info: Stopping service, clearing all AdGuardHome firewall rules"
+		clear_iptable "$AdGuardHome_PORT" "$ipv6_server"
+		stop_forward_dnsmasq "$AdGuardHome_PORT"
+		rm_port53
 		return 1
 	fi
+
+	# 当重定向方式改变时，清理旧规则
+	if [ "$redirect" != "none" ]; then
+		logger -t AdGuardHome "Debug: Clearing old redirect rules before setting new rules"
+		clear_iptable "$AdGuardHome_PORT" "$ipv6_server"
+		stop_forward_dnsmasq "$AdGuardHome_PORT"
+		rm_port53
+	fi
+
+	# 添加新规则
+	if [ "$AdGuardHome_PORT" == "0" ]; then
+		logger -t AdGuardHome "Warning: AdGuardHome_PORT is 0, cannot add redirect rules"
+		return 1
+	fi
+	
 	if [ "$redirect" = "redirect" ]; then
 		set_iptable $ipv6_server $tcp_server
 	elif [ "$redirect" = "dnsmasq-upstream" ]; then
@@ -396,31 +455,37 @@ config_editor()
 	fi
 	local line_num=0
 	local found=0
-	local IFS='.'
-	local parts
-	parts=$(echo "$yaml" | tr '.' ' ')
+	local yaml_key yaml_value
+	yaml_key=$(echo "$yaml" | sed 's/\./ /g')
 	local depth=0
+	local max_depth=$(echo "$yaml_key" | wc -w)
 	while IFS= read -r line; do
 		line_num=$((line_num + 1))
-		if [ "$depth" -lt "${#parts[@]}" ]; then
-			local pattern="^[[:space:]]*${parts[$depth]}[[:space:]]*:"
-			if echo "$line" | grep -qE "$pattern"; then
-				depth=$((depth + 1))
-				if [ "$depth" -eq "${#parts[@]}" ]; then
-					if [ -z "$ro" ]; then
-						sed -i "${line_num}s/.*/  ${parts[$((depth-1))]}: ${value}/" "$file"
-						found=1
-					else
-						echo "$line" | sed 's/.*: *//'
-						found=1
-					fi
-					break
+		current_depth=$(echo "$yaml_key" | cut -d' ' -f$((depth+1)))
+		if [ -z "$current_depth" ]; then
+			break
+		fi
+		local pattern="^[[:space:]]*${current_depth}[[:space:]]*:"
+		if echo "$line" | grep -qE "$pattern"; then
+			depth=$((depth + 1))
+			if [ "$depth" -eq "$max_depth" ]; then
+				if [ -z "$ro" ]; then
+					sed -i "${line_num}s/.*/  ${current_depth}: ${value}/" "$file"
+					found=1
+				else
+					echo "$line" | sed 's/.*: *//'
+					found=1
 				fi
+				break
 			fi
 		fi
 	done < "$file"
 	[ "$found" -eq 0 ] && [ -z "$ro" ] && return 1
-	return 0
+	if [ "$found" -eq 1 ]; then
+		return 0
+	else
+		return 1
+	fi
 }
 
 check_dependencies()
@@ -586,7 +651,7 @@ start_service() {
 	ADDITIONAL_ARGS="$ADDITIONAL_ARGS -p $httpport"
 
 	config_get upprotect $CONFIGURATION upprotect ""
-	eval upprotect=${upprotect// /\\\\n}
+	upprotect=$(echo "$upprotect" | sed 's/ /\\\n/g')
 	echo -e "$upprotect">/lib/upgrade/keep.d/luci-app-adguardhome
 	
 	config_get logfile $CONFIGURATION logfile ""
@@ -663,7 +728,7 @@ stop_service()
 	config_get tcp_server $CONFIGURATION tcp_server "0"
 	config_get AdGuardHome_PORT $CONFIGURATION port "53"
 	export AdGuardHome_PORT
-	# _do_redirect 0 会根据 old_redirect 自动清理规则
+	# _do_redirect 0 会根据 COMMENT 精确清理所有 AdGuardHome 规则
 	_do_redirect 0
 	do_crontab
 	if [ "$1" != "nobackup" ]; then
@@ -725,8 +790,9 @@ do_crontab(){
 crontab_editor(){
 	local testline reload
 	local line="$(grep "$findstr" $CRON_FILE)"
-	[ -n "$replace" ] && [ -n "$line" ] && eval testline="\${line//$replace}" && [ "$testline" != "$line" ] && line="$testline" && reload="1" && replace="" 
-	if [ "${line:0:1}" != "#" ]; then
+	[ -n "$replace" ] && [ -n "$line" ] && testline="$(echo "$line" | sed "s/$replace//g")" && [ "$testline" != "$line" ] && line="$testline" && reload="1" && replace="" 
+	local first_char="$(echo "$line" | cut -c1)"
+	if [ "$first_char" != "#" ]; then
 		if [ $cronenable -eq 1 ]; then
 			[ -z "$line" ] && line="$default" && reload="1"
 			if [ -n "$reload" ]; then
@@ -742,7 +808,7 @@ crontab_editor(){
 	else
 		if [ $cronenable -eq 1 ]; then
 			sed -i "\,$findstr,d" $CRON_FILE
-			echo "${line:1}" >> $CRON_FILE
+			echo "$line" | cut -c2- >> $CRON_FILE
 			cronreload=$((cronreload+1))
 		elif [ -z "$reload" ]; then
 			sed -i "\,$findstr,d" $CRON_FILE
