@@ -117,7 +117,7 @@ filters:
     url: https://ghfast.top/https://raw.githubusercontent.com/217heidai/adblockfilters/main/rules/adblockdns.txt
     name: 217heidai
     id: 1745539200
-    interval: 72h
+    interval: 259200
 whitelist_filters: []
 user_rules: []
 dhcp:
@@ -163,7 +163,7 @@ filtering:
   safesearch_cache_size: 1048576
   parental_cache_size: 1048576
   cache_time: 30
-  filters_update_interval: 72h
+  filters_update_interval: 259200
   blocked_response_ttl: 10
   filtering_enabled: true
   rewrites_enabled: true
