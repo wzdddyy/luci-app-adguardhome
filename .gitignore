@@ -1,0 +1,14 @@
+# build output
+*.ipk
+*.apk
+*.lmo
+/bin/
+/build_dir/
+/staging_dir/
+/tmp/
+/dl/
+/logs/
+.config
+.config.old
+*.o
+*.so

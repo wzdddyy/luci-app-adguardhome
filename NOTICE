@@ -1,0 +1,16 @@
+luci-app-adguardhome
+Copyright 2026 wzdddyy
+
+Based on the original work by rufengsuixing
+  https://github.com/rufengsuixing/luci-app-adguardhome
+  (created 2019, last release 1.8-11 in 2020)
+
+Modifications from the original work:
+  - Simplified Chinese translations completed (91/91 entries)
+  - Fixed gfwlist yaml indentation that made AdGuardHome fail to start
+  - Removed eval-based command injection in core update
+  - Shell arguments quoted, fs.rmdir on user paths removed
+  - Log views switched from innerHTML to textarea value
+  - Added download mirrors for the AdGuardHome core
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
