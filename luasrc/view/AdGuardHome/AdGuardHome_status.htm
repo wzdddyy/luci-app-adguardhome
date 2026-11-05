@@ -1,0 +1,117 @@
+<link rel="stylesheet" href="<%=resource%>/AdGuardHome/theme.css"/>
+<script type="text/javascript">//<![CDATA[
+(function(){
+	function pad(n){ return n < 10 ? '0' + n : '' + n; }
+	function fmtUptime(s){
+		s = parseInt(s, 10) || 0;
+		var d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
+		var UD = '<%:days%>', UH = '<%:hours%>', UM = '<%:minutes%>';
+		if (d > 0) return d + ' ' + UD + ' ' + h + ' ' + UH;
+		if (h > 0) return h + ' ' + UH + ' ' + m + ' ' + UM;
+		return m + ' ' + UM;
+	}
+	function goto(name){
+		var li = document.querySelector('ul.cbi-tabmenu li[data-tab="' + name + '"]');
+		if (li) {
+			var a = li.querySelector('a');
+			if (a && !li.classList.contains('cbi-tab')) a.click();
+		}
+		var menu = document.querySelector('ul.cbi-tabmenu');
+		if (menu && menu.scrollIntoView) menu.scrollIntoView({ behavior: 'smooth', block: 'start' });
+	}
+	function setDot(id, on){
+		var dot = document.getElementById(id);
+		if (dot) dot.className = on ? 'agh-dot' : 'agh-dot agh-dot-off';
+	}
+	function update(data){
+		var running = !!data.running;
+		var version = data.version || '—';
+		var port = data.port || 3000;
+		var dnsport = data.dnsport || 0;
+		var url = (data.tls ? 'https://' : 'http://') + window.location.hostname + ':' + port;
+
+		setDot('agh-run-dot', running);
+		setDot('agh-redir-dot', running && !!data.redirect);
+		setDot('agh-web-dot', running);
+
+		var runValue = document.getElementById('agh-run-value');
+		runValue.className = running ? 'agh-value' : 'agh-value agh-value-off';
+		runValue.innerHTML = running
+			? '<%:RUNNING%>' + (data.uptime ? ' <span class="agh-unit">' + fmtUptime(data.uptime) + '</span>' : '')
+			: '<%:NOT RUNNING%>';
+		document.getElementById('agh-run-meta').textContent = running
+			? '<%:Core Version%> ' + version
+			: '<%:Stopped%>';
+
+		var redirmode = data.redirmode || 'none';
+		var redirLabels = {
+			'dnsmasq-upstream': '<%:Run as dnsmasq upstream server%>',
+			'redirect': '<%:Firewall DNAT%>',
+			'exchange': '<%:Use port 53 replace dnsmasq%>'
+		};
+		var redirValue = document.getElementById('agh-redir-value');
+		redirValue.className = (running && data.redirect) ? 'agh-value' : 'agh-value agh-value-off';
+		redirValue.innerHTML = (running && data.redirect)
+			? '<%:Redirected%>' + (dnsport ? ' <span class="agh-unit">127.0.0.1:' + dnsport + '</span>' : '')
+			: '<%:Not redirect%>';
+		document.getElementById('agh-redir-meta').textContent = redirLabels[redirmode]
+			? '<%:Mode%>: ' + redirLabels[redirmode]
+			: '<%:No redirect rule%>';
+
+		var webValue = document.getElementById('agh-web-value');
+		webValue.className = running ? 'agh-value' : 'agh-value agh-value-off';
+		webValue.innerHTML = running ? port + ' <span class="agh-unit">HTTP</span>' : '—';
+		document.getElementById('agh-web-meta').textContent = running ? url : '';
+		document.getElementById('agh-web-meta').className = running ? 'agh-meta' : 'agh-meta agh-hidden';
+
+		var openBtn = document.getElementById('agh-open-web');
+		openBtn.className = running ? 'agh-link agh-link-primary' : 'agh-link agh-link-primary agh-hidden';
+		openBtn.onclick = function(){ if (running) window.open(url); };
+	}
+
+	document.addEventListener('DOMContentLoaded', function(){
+		document.getElementById('agh-btn-log').onclick = function(){ goto('log'); };
+		document.getElementById('agh-btn-mode').onclick = function(){ goto('basic'); };
+		var hash = (window.location.hash || '').replace('#', '');
+		if (hash) setTimeout(function(){ goto(hash); }, 0);
+		window.addEventListener('hashchange', function(){
+			var h = (window.location.hash || '').replace('#', '');
+			if (h) goto(h);
+		});
+		XHR.poll(3, '<%=url([[admin]], [[services]], [[AdGuardHome]], [[status]])%>', null,
+			function(x, data) {
+				if (data) update(data);
+			}
+		);
+	});
+})();
+//]]></script>
+<div class="agh-stats">
+	<div class="agh-card">
+		<div class="agh-head">
+			<span class="agh-dot" id="agh-run-dot"></span>
+			<span class="agh-title"><%:Running status%></span>
+			<button type="button" class="agh-link" id="agh-btn-log"><%:View log%></button>
+		</div>
+		<div class="agh-value" id="agh-run-value"><%:Collecting data...%></div>
+		<div class="agh-meta" id="agh-run-meta"></div>
+	</div>
+	<div class="agh-card">
+		<div class="agh-head">
+			<span class="agh-dot" id="agh-redir-dot"></span>
+			<span class="agh-title"><%:DNS redirect%></span>
+			<button type="button" class="agh-link" id="agh-btn-mode"><%:Switch mode%></button>
+		</div>
+		<div class="agh-value" id="agh-redir-value"><%:Collecting data...%></div>
+		<div class="agh-meta" id="agh-redir-meta"></div>
+	</div>
+	<div class="agh-card">
+		<div class="agh-head">
+			<span class="agh-dot" id="agh-web-dot"></span>
+			<span class="agh-title"><%:Browser management port%></span>
+			<button type="button" class="agh-link agh-link-primary agh-hidden" id="agh-open-web"><%:Open Web Interface%></button>
+		</div>
+		<div class="agh-value" id="agh-web-value">—</div>
+		<div class="agh-meta agh-hidden" id="agh-web-meta"></div>
+	</div>
+</div>

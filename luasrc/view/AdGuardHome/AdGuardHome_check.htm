@@ -1,0 +1,109 @@
+<%+cbi/valueheader%>
+<%local fs=require"nixio.fs"%>
+<div class="agh-update-actions">
+<input type="button" class="btn cbi-button cbi-button-apply" id="apply_update_button" value="<%:Update core version%>" onclick="var l=document.getElementById('logview'); if(l) l.style.display='block'; return apply_update() "/>
+<input type="button" class="btn cbi-button cbi-button-apply" id="apply_forceupdate_button" value="<%:Force update%>" onclick="var l=document.getElementById('logview'); if(l) l.style.display='block'; return apply_forceupdate()" style="display:none"/>
+<% if self.showfastconfig then %>
+<input type="button" class="btn cbi-button cbi-button-apply" id="to_configpage" value="<%:Fast config%>" onclick="location.href='<%=url([[admin]], [[services]], [[AdGuardHome]])%>#manual'"/>
+<%end%>
+</div>
+<div id="logview" class="agh-update-log" style="display:none">
+<label class="agh-check"><input type="checkbox" id="reversetag" value="reverse" onclick=" return aghUpdReverseLog()"/><%:reverse%></label>
+<textarea id="agh-update-log" class="cbi-input-textarea" placeholder="<%:No log available%>" style="width: 100%;display:block;" data-update="change" rows="5" cols="60" readonly="readonly" > </textarea>
+</div>
+<script type="text/javascript">//<![CDATA[
+var updatebtn = document.getElementById('apply_update_button');
+var forceupdatebtn = document.getElementById('apply_forceupdate_button');
+var aghUpdReverse = false;
+function apply_forceupdate(){
+	updatebtn.disabled = true;
+	XHR.get('<%=url([[admin]], [[services]], [[AdGuardHome]], [[doupdate]])%>',{ force: 1 },function(x, data){
+		aghUpdPollCheck();
+	});
+	return
+}
+function aghUpdReverseLog(){
+	var lv = document.getElementById('agh-update-log');
+	lv.value=lv.value.split('\n').reverse().join('\n')
+	aghUpdReverse = !aghUpdReverse;
+	return
+}
+function apply_update(){
+	updatebtn.disabled = true;
+	updatebtn.value    = '<%:Check...%>';
+	forceupdatebtn.style.display="inline"
+	XHR.get('<%=url([[admin]], [[services]], [[AdGuardHome]], [[doupdate]])%>',null,function(x, data){
+		aghUpdPollCheck();
+	});
+	return
+}
+function aghUpdTrimLog(lv){
+	var max = 300000;
+	if (lv.value.length > max) {
+		lv.value = aghUpdReverse ? lv.value.substr(0, max) : lv.value.substr(-max);
+	}
+}
+function aghUpdPollCheck(){
+var tag = document.getElementById('logview');
+	tag.style.display="block"
+	if (tag.scrollIntoView) tag.scrollIntoView({block:'nearest'});
+	for (var i = 0; XHR._q && i < XHR._q.length; i++) {
+		if (XHR._q[i].url == '<%=url([[admin]], [[services]], [[AdGuardHome]], [[check]])%>') return;
+	}
+XHR.poll(3, '<%=url([[admin]], [[services]], [[AdGuardHome]], [[check]])%>', null,
+	function(x, data) {
+		var lv = document.getElementById('agh-update-log');
+		if (x.responseText && lv) {
+			var tail = x.responseText.substr(-1);
+			if (tail == "\u0000" || tail == "\u0001"){
+				var body = x.responseText.slice(0, -1);
+				if (body) {
+					if (aghUpdReverse){
+						lv.value = body.split('\n').reverse().join('\n')+lv.value;
+					}else{
+						lv.value += body;
+					}
+					aghUpdTrimLog(lv);
+				}
+				var noUpdate = lv.value.indexOf('已是最新版本') >= 0;
+				for(j = 0,len=this.XHR._q.length; j < len; j++) {
+					if (this.XHR._q[j].url == '<%=url([[admin]], [[services]], [[AdGuardHome]], [[check]])%>'){
+						this.XHR._q.splice(j,1);
+						updatebtn.disabled = false;
+						if (tail == "\u0001") {
+							updatebtn.value = '<%:Update failed%>';
+						} else if (noUpdate) {
+							updatebtn.value = '<%:Up to date%>';
+						} else {
+							updatebtn.value = '<%:Updated%>';
+							var box = document.getElementById('logview');
+							if (box) box.style.display = 'none';
+						}
+						break;
+					}
+				}
+				return	
+			}
+			if (aghUpdReverse){
+				lv.value = x.responseText.split('\n').reverse().join('\n')+lv.value;
+			}else{
+				lv.value += x.responseText;
+			}
+			aghUpdTrimLog(lv);
+		}
+	}
+);}
+<% if fs.access("/var/run/update_core") or fs.access("/var/run/update_core_error") then %>
+<% fs.writefile("/var/run/lucilogpos_update","0") %>
+<% end %>
+<% if fs.access("/var/run/update_core") then %>
+	updatebtn.disabled = true;
+	updatebtn.value    = '<%:Check...%>';
+	forceupdatebtn.style.display="inline"
+	aghUpdPollCheck();
+<%elseif fs.access("/var/run/update_core_error") then %>
+	aghUpdPollCheck();
+<%end%>
+//]]>
+</script>
+<%+cbi/valuefooter%>
