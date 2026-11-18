@@ -74,18 +74,31 @@
 	display: none !important;
 }
 
-.agh-link {
+.agh-head .agh-link {
 	margin-left: auto;
-	border: 0;
-	background: transparent;
+	border: 0 !important;
+	border-radius: 0 !important;
+	background: transparent !important;
+	background-image: none !important;
+	box-shadow: none !important;
+	outline: 0 !important;
 	color: #10a56f;
 	font-size: 11px;
-	padding: 0;
+	line-height: 1.4;
+	padding: 0 !important;
+	min-width: 0 !important;
+	height: auto !important;
 	cursor: pointer;
 	white-space: nowrap;
+	appearance: none;
 }
 
-.agh-link:hover {
+.agh-head .agh-link:hover,
+.agh-head .agh-link:focus,
+.agh-head .agh-link:active {
+	border: 0 !important;
+	background: transparent !important;
+	box-shadow: none !important;
 	text-decoration: underline;
 }
 
