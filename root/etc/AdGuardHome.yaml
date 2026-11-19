@@ -69,6 +69,7 @@ dns:
   private_networks: []
   use_private_ptr_resolvers: true
   local_ptr_upstreams: []
+  querylog_interval: 1
 tls:
   enabled: false
   server_name: ""
