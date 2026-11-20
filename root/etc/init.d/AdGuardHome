@@ -400,9 +400,24 @@ start_service() {
 	# update password
 	config_get hashpass $CONFIGURATION hashpass ""
 	config_get configpath $CONFIGURATION configpath "/etc/AdGuardHome.yaml"
+	[ -s "$configpath" ] || cp -f /usr/share/AdGuardHome/AdGuardHome_template.yaml "$configpath"
 	if [ -n "$hashpass" ]; then
 		config_editor "users.password" "$hashpass" "$configpath"
 		uci set $CONFIGURATION.$CONFIGURATION.hashpass=""
+	fi
+	# 网页端口以核心配置 http.address 为准，同步到 UCI 供 LuCI/防火墙使用
+	local cfgport
+	cfgport=$(config_editor "http.address" "" "$configpath" "1" | tr -d '"')
+	case "$cfgport" in
+		*:*) cfgport=${cfgport##*:} ;;
+	esac
+	case "$cfgport" in
+		''|*[!0-9]*) cfgport="" ;;
+	esac
+	if [ -n "$cfgport" ] && [ "$(uci -q get $CONFIGURATION.$CONFIGURATION.httpport)" != "$cfgport" ]; then
+		uci set $CONFIGURATION.$CONFIGURATION.httpport="$cfgport"
+		uci commit $CONFIGURATION
+		config_load "${CONFIGURATION}"
 	fi
 	config_get_bool enabled $CONFIGURATION enabled 0
 	# update crontab
@@ -460,8 +475,7 @@ start_service() {
 		/usr/share/AdGuardHome/update_core.sh 2>&1 >/tmp/AdGuardHome_update.log &
 		exit 0
 	fi
-	config_get httpport $CONFIGURATION httpport 3000
-	local ADDITIONAL_ARGS=" -c $configpath -w $workdir -p $httpport --no-check-update"
+	local ADDITIONAL_ARGS=" -c $configpath -w $workdir --no-check-update"
 	if [ -n "$logfile" ]; then
 		ADDITIONAL_ARGS="$ADDITIONAL_ARGS -l $logfile"
 	fi
