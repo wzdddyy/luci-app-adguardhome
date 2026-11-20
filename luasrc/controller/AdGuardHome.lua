@@ -86,13 +86,13 @@ function act_status()
 	local e={}
 	local binpath=uci:get("AdGuardHome","AdGuardHome","binpath") or "/usr/bin/AdGuardHome"
 	local configpath=uci:get("AdGuardHome","AdGuardHome","configpath") or "/etc/AdGuardHome.yaml"
-	local dnsport=sys.exec("grep -A 5 '^dns:' %s 2>/dev/null | grep 'port:' | awk '{print $2}'" % util.shellquote(configpath))
+	local dnsport=sys.exec("awk '/^dns:[[:space:]]*$/{f=1;next} f&&/^[^[:space:]#]/{f=0} f&&/^[[:space:]]+port:[[:space:]]/{print $2;exit}' %s 2>/dev/null" % util.shellquote(configpath))
 	e.running=sys.call("pgrep %s >/dev/null" % util.shellquote(binpath))==0
 	e.redirect=(fs.readfile("/var/run/AdGredir")=="1")
 	e.redirmode=uci:get("AdGuardHome","AdGuardHome","redirect") or "none"
 	local tlsenabled=sys.exec("grep -A 5 '^tls:' %s 2>/dev/null | grep 'enabled:' | awk '{print $2}'" % util.shellquote(configpath))
 	e.tls=((tlsenabled or ""):gsub("%s+","")=="true")
-	e.port=tonumber(uci:get("AdGuardHome","AdGuardHome","httpport") or "") or 3000
+	e.port=tonumber(uci:get("AdGuardHome","AdGuardHome","httpport") or "") or 3001
 	e.dnsport=tonumber((dnsport or ""):match("%d+")) or 0
 	local version=uci:get("AdGuardHome","AdGuardHome","version") or ""
 	local binmtime=fs.stat(binpath,"mtime")
