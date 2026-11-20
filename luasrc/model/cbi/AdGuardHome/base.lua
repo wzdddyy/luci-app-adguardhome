@@ -39,6 +39,34 @@ local function gen_template_config()
 	return table.concat(tbl, "\n")
 end
 
+local function set_http_port(port)
+	local f = io.open(configpath, "r")
+	if not f then return false end
+	local out, in_http, done = {}, false, false
+	for line in f:lines() do
+		if line:match("^http:%s*$") then
+			in_http = true
+		elseif line:match("^%S") then
+			in_http = false
+		end
+		if in_http and not done then
+			local host = line:match("^%s+address:%s*(.-):%d+%s*$")
+			if host then
+				line = "  address: " .. host .. ":" .. tostring(port)
+				done = true
+			end
+		end
+		out[#out + 1] = line
+	end
+	f:close()
+	if not done then return false end
+	local w = io.open(configpath, "w")
+	if not w then return false end
+	w:write(table.concat(out, "\n") .. "\n")
+	w:close()
+	return true
+end
+
 m = Map("AdGuardHome", "AdGuard Home")
 m.description = translate("Free and open source, powerful network-wide ads & trackers blocking DNS server.")
 m:section(SimpleSection).template  = "AdGuardHome/AdGuardHome_status"
@@ -59,6 +87,10 @@ o.placeholder=3000
 o.default=3000
 o.datatype="port"
 o.optional = false
+o.write = function(self, section, value)
+	uci:set("AdGuardHome", section, "httpport", value)
+	set_http_port(value)
+end
 
 o = s:taboption("basic", Flag, "remoteaccess", translate("Allow access from the Internet"), translate("Open the web management port in the firewall, change the default password before enabling"))
 o.default = 0
@@ -94,8 +126,8 @@ o.template = "AdGuardHome/AdGuardHome_check"
 o.showfastconfig=(not fs.access(configpath))
 o.description = string.format(translate("Current core version:") .. "<strong><font id='updateversion' color='green'>%s </font></strong>", e)
 
-local port=luci.sys.exec("grep -A 5 '^dns:' %s | grep 'port:' | awk '{print $2}' 2>/dev/null" % luci.util.shellquote(configpath))
-if (port=="") then port="?" end
+local port=luci.sys.exec("awk '/^dns:[[:space:]]*$/{f=1;next} f&&/^[^[:space:]#]/{f=0} f&&/^[[:space:]]+port:[[:space:]]/{print $2;exit}' %s 2>/dev/null" % luci.util.shellquote(configpath))
+port = port:match("%d+") or "?"
 
 o = s:taboption("basic", ListValue, "redirect", port .. " " .. translate("Redirect"), translate("AdGuardHome redirect mode"))
 o:value("none", translate("none"))
