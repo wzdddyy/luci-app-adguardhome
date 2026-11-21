@@ -82,6 +82,75 @@ local function cleanup_logpos()
 	end
 end
 
+local function yaml_first_user(path)
+	local f=io.open(path,"r")
+	if not f then return "admin" end
+	local in_users,name=false,nil
+	for line in f:lines() do
+		if line:match("^users:%s*$") then
+			in_users=true
+		elseif in_users then
+			if line:match("^%S") then break end
+			name=line:match("^%s*%-?%s*name:%s*(.-)%s*$")
+			if name then break end
+		end
+	end
+	f:close()
+	name=(name or ""):gsub("^[\"']",""):gsub("[\"']$","")
+	if name=="" then return "admin" end
+	return name
+end
+
+local STATS_CACHE="/tmp/AdGuardHome_stats.cache"
+local STATS_FAIL="/tmp/AdGuardHome_stats.fail"
+
+local function read_stats_cache()
+	local c=fs.readfile(STATS_CACHE) or ""
+	local q,b=c:match("^(%d+)%s+(%d+)")
+	if q then return tonumber(q),tonumber(b) end
+	return nil
+end
+
+local function stats_backoff()
+	local mtime=fs.stat(STATS_FAIL,"mtime")
+	if not mtime then return false end
+	local attempts=tonumber(fs.readfile(STATS_FAIL) or "") or 1
+	return os.time()-mtime < ((attempts>=2) and 600 or 20)
+end
+
+local function agh_stats(port,tls,user,pass)
+	if stats_backoff() then return nil end
+	local now=os.time()
+
+	local cached=fs.stat(STATS_CACHE,"mtime")
+	if cached and now-cached < 10 then
+		return read_stats_cache()
+	end
+
+	local url=string.format("%s://127.0.0.1:%d/control/stats",tls and "https" or "http",port)
+	local cmd=string.format("curl -sk -m 2 -w '\\n%%{http_code}' -u %s %s 2>/dev/null",
+		util.shellquote(user..":"..pass),util.shellquote(url))
+	local raw=sys.exec(cmd) or ""
+	local out,code=raw:match("^(.-)\n(%d%d%d)$")
+	if not out then out=raw end
+
+	if code=="401" or code=="403" then
+		local attempts=tonumber(fs.readfile(STATS_FAIL) or "") or 0
+		fs.writefile(STATS_FAIL,tostring(attempts+1))
+		fs.remove(STATS_CACHE)
+		return nil
+	end
+
+	local q=out:match('"num_dns_queries"%s*:%s*(%d+)')
+	local b=out:match('"num_blocked_filtering"%s*:%s*(%d+)')
+	if q and b then
+		fs.remove(STATS_FAIL)
+		fs.writefile(STATS_CACHE,q.." "..b)
+		return tonumber(q),tonumber(b)
+	end
+	return nil
+end
+
 function act_status()
 	local e={}
 	local binpath=uci:get("AdGuardHome","AdGuardHome","binpath") or "/usr/bin/AdGuardHome"
@@ -122,6 +191,15 @@ function act_status()
 			if starttime then
 				e.uptime=math.max(0, up-math.floor(starttime/100))
 			end
+		end
+		local user=yaml_first_user(configpath)
+		local pass=uci:get("AdGuardHome","AdGuardHome","password") or "admin123"
+		local queries,blocked=agh_stats(e.port,e.tls,user,pass)
+		if queries and blocked then
+			e.queries=queries
+			e.blocked=blocked
+		elseif fs.access(STATS_FAIL) then
+			e.stats_auth=true
 		end
 	end
 	http.prepare_content("application/json")
