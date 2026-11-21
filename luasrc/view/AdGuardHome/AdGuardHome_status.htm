@@ -137,3 +137,15 @@
 		<div class="agh-meta agh-hidden" id="agh-web-meta"></div>
 	</div>
 </div>
+<script type="text/javascript">//<![CDATA[
+(function(){
+	function lum(c){
+		var m = (c || '').match(/[\d.]+/g) || [];
+		if (m.length < 3 || (m.length > 3 && parseFloat(m[3]) === 0)) return null;
+		return 0.299 * parseFloat(m[0]) + 0.587 * parseFloat(m[1]) + 0.114 * parseFloat(m[2]);
+	}
+	var l = lum(getComputedStyle(document.body).backgroundColor);
+	if (l === null) l = lum(getComputedStyle(document.documentElement).backgroundColor);
+	if (l !== null && l < 128) document.body.classList.add('agh-dark');
+})();
+//]]></script>
