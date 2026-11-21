@@ -24,6 +24,8 @@ function chpass(btn)
 		return
 		}
 		if (lv.value != ""){
+		var pv = document.getElementById('cbid.AdGuardHome.AdGuardHome.password');
+		if (pv) pv.value = lv.value;
 		var hash = TwinBcrypt.hashSync(lv.value);
 		lv.value=hash;
 		btn.value    = '<%:Please save/apply%>';
