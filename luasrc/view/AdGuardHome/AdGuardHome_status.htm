@@ -2,6 +2,7 @@
 <script type="text/javascript">//<![CDATA[
 (function(){
 	function pad(n){ return n < 10 ? '0' + n : '' + n; }
+	function fmtNum(n){ return (parseInt(n, 10) || 0).toLocaleString(); }
 	function fmtUptime(s){
 		s = parseInt(s, 10) || 0;
 		var d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
@@ -41,6 +42,18 @@
 			: '<%:NOT RUNNING%>';
 		document.getElementById('agh-run-meta').textContent = running
 			? '<%:Core Version%> ' + version
+			: '<%:Stopped%>';
+
+		var queries = data.queries, blocked = data.blocked;
+		var hasStats = running && typeof queries === 'number' && typeof blocked === 'number';
+		setDot('agh-stats-dot', hasStats);
+		var statsValue = document.getElementById('agh-stats-value');
+		statsValue.className = hasStats ? 'agh-value' : 'agh-value agh-value-off';
+		statsValue.innerHTML = hasStats
+			? fmtNum(queries) + ' <span class="agh-unit"><%:queries%></span> / ' + fmtNum(blocked) + ' <span class="agh-unit"><%:blocked%></span>'
+			: '—';
+		document.getElementById('agh-stats-meta').textContent = running
+			? (hasStats ? '' : (data.stats_auth ? '<%:Management password mismatch, please resync it%>' : '<%:Statistics unavailable%>'))
 			: '<%:Stopped%>';
 
 		var redirmode = data.redirmode || 'none';
@@ -95,6 +108,14 @@
 		</div>
 		<div class="agh-value" id="agh-run-value"><%:Collecting data...%></div>
 		<div class="agh-meta" id="agh-run-meta"></div>
+	</div>
+	<div class="agh-card">
+		<div class="agh-head">
+			<span class="agh-dot" id="agh-stats-dot"></span>
+			<span class="agh-title"><%:DNS query statistics%></span>
+		</div>
+		<div class="agh-value" id="agh-stats-value">—</div>
+		<div class="agh-meta" id="agh-stats-meta"></div>
 	</div>
 	<div class="agh-card">
 		<div class="agh-head">
