@@ -1,0 +1,7 @@
+<%+cbi/valueheader%>
+<input type="hidden"<%=
+	attr("id", cbid) ..
+	attr("name", cbid) ..
+	attr("value", self:cfgvalue(section) or self.default or "")
+%> />
+<%+cbi/valuefooter%>
