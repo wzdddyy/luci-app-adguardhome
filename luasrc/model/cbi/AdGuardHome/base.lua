@@ -142,6 +142,17 @@ o.default     = ""
 o.datatype    = "string"
 o.template = "AdGuardHome/AdGuardHome_chpass"
 o.optional = true
+o = s:taboption("basic",Value, "password", "")
+o.default     = "admin123"
+o.datatype    = "string"
+o.optional = true
+o.template = "AdGuardHome/AdGuardHome_aghpass"
+o.write = function(self, section, value)
+	uci:set("AdGuardHome", section, "password", value)
+	uci:commit("AdGuardHome")
+	fs.remove("/tmp/AdGuardHome_stats.fail")
+	fs.remove("/tmp/AdGuardHome_stats.cache")
+end
 
 -- wait net on boot
 o = s:taboption("basic", Flag, "waitonboot", translate("Start up only when the network is normal"))
