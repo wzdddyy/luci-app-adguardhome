@@ -164,7 +164,7 @@ ul.cbi-tabmenu li a {
 	border: 0 !important;
 	border-radius: 8px !important;
 	background: transparent !important;
-	color: inherit !important;
+	color: #4a4f55 !important;
 	opacity: .72 !important;
 	text-decoration: none !important;
 	white-space: nowrap;
@@ -189,8 +189,22 @@ ul.cbi-tabmenu li.cbi-tab a {
 	background: rgba(127, 127, 127, .22) !important;
 	font-weight: 600 !important;
 	opacity: 1 !important;
-	color: inherit !important;
+	color: #10a56f !important;
 	border: 0 !important;
+}
+
+body.dark ul.cbi-tabmenu li a,
+html.dark ul.cbi-tabmenu li a,
+.dark ul.cbi-tabmenu li a,
+[data-theme="dark"] ul.cbi-tabmenu li a {
+	color: #d8dde3 !important;
+}
+
+body.dark ul.cbi-tabmenu li.cbi-tab a,
+html.dark ul.cbi-tabmenu li.cbi-tab a,
+.dark ul.cbi-tabmenu li.cbi-tab a,
+[data-theme="dark"] ul.cbi-tabmenu li.cbi-tab a {
+	color: #2fbe86 !important;
 }
 
 .cbi-tabcontainer {
