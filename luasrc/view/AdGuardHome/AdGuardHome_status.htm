@@ -48,9 +48,10 @@
 		var hasStats = running && typeof queries === 'number' && typeof blocked === 'number';
 		setDot('agh-stats-dot', hasStats);
 		var statsValue = document.getElementById('agh-stats-value');
-		statsValue.className = hasStats ? 'agh-value' : 'agh-value agh-value-off';
+		statsValue.className = hasStats ? 'agh-value agh-stack' : 'agh-value agh-value-off';
 		statsValue.innerHTML = hasStats
-			? fmtNum(queries) + ' <span class="agh-unit"><%:queries%></span> / ' + fmtNum(blocked) + ' <span class="agh-unit"><%:blocked%></span>'
+			? '<span class="agh-stat-line"><span class="agh-stat-label"><%:DNS queries:%></span>' + fmtNum(queries) + '</span>'
+				+ '<span class="agh-stat-line"><span class="agh-stat-label"><%:Blocked ads:%></span>' + fmtNum(blocked) + '</span>'
 			: '—';
 		document.getElementById('agh-stats-meta').textContent = running
 			? (hasStats ? '' : (data.stats_auth ? '<%:Management password mismatch, please resync it%>' : '<%:Statistics unavailable%>'))

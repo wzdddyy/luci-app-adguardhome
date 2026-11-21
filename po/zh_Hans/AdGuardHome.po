@@ -55,11 +55,11 @@ msgstr "DNS 重定向"
 msgid "DNS query statistics"
 msgstr "DNS 查询统计"
 
-msgid "queries"
-msgstr "查询"
+msgid "DNS queries:"
+msgstr "DNS 查询："
 
-msgid "blocked"
-msgstr "已拦截"
+msgid "Blocked ads:"
+msgstr "已拦截的广告："
 
 msgid "Statistics unavailable"
 msgstr "统计不可用"
