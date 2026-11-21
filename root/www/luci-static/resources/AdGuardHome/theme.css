@@ -6,7 +6,7 @@
 	display: grid;
 	grid-template-columns: repeat(4, minmax(0, 1fr));
 	gap: 8px;
-	margin: 0 0 10px;
+	margin: 0;
 }
 
 .agh-card {
@@ -146,6 +146,16 @@ ul.cbi-tabmenu {
 	background-image: none !important;
 }
 
+.cbi-section:has(> ul.cbi-tabmenu) {
+	padding-top: 14px;
+}
+
+@supports not selector(:has(*)) {
+	ul.cbi-tabmenu {
+		margin-top: 14px !important;
+	}
+}
+
 ul.cbi-tabmenu li {
 	margin: 0 !important;
 	padding: 0 !important;
@@ -164,8 +174,8 @@ ul.cbi-tabmenu li a {
 	border: 0 !important;
 	border-radius: 8px !important;
 	background: transparent !important;
-	color: #4a4f55 !important;
-	opacity: .72 !important;
+	color: var(--text-color, #4a4f55) !important;
+	opacity: .78 !important;
 	text-decoration: none !important;
 	white-space: nowrap;
 	box-shadow: none !important;
@@ -193,6 +203,7 @@ ul.cbi-tabmenu li.cbi-tab a {
 	border: 0 !important;
 }
 
+body.agh-dark ul.cbi-tabmenu li a,
 body.dark ul.cbi-tabmenu li a,
 html.dark ul.cbi-tabmenu li a,
 .dark ul.cbi-tabmenu li a,
@@ -200,6 +211,7 @@ html.dark ul.cbi-tabmenu li a,
 	color: #d8dde3 !important;
 }
 
+body.agh-dark ul.cbi-tabmenu li.cbi-tab a,
 body.dark ul.cbi-tabmenu li.cbi-tab a,
 html.dark ul.cbi-tabmenu li.cbi-tab a,
 .dark ul.cbi-tabmenu li.cbi-tab a,
