@@ -52,6 +52,21 @@ msgstr "运行状态"
 msgid "DNS redirect"
 msgstr "DNS 重定向"
 
+msgid "DNS query statistics"
+msgstr "DNS 查询统计"
+
+msgid "queries"
+msgstr "查询"
+
+msgid "blocked"
+msgstr "已拦截"
+
+msgid "Statistics unavailable"
+msgstr "统计不可用"
+
+msgid "Management password mismatch, please resync it"
+msgstr "管理密码不一致，请在更改登录密码处修改同步"
+
 msgid "View log"
 msgstr "查看日志"
 
