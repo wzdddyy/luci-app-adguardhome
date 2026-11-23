@@ -66,7 +66,7 @@ dns:
   cache_ttl_max: 0
   cache_ttl_min: 0
   cache_size: 4194304
-  ratelimit: 20
+  ratelimit: 0
   port: 5553
   aaaa_disabled: false
   anonymize_client_ip: false
@@ -112,21 +112,9 @@ statistics:
   ignored_enabled: false
 filters:
   - enabled: true
-    url: https://cdn.jsdelivr.net/gh/AdguardTeam/HostlistsRegistry@main/assets/filter_1.txt
-    name: AdGuard DNS filter
+    url: https://gh-proxy.com/https://raw.githubusercontent.com/217heidai/adblockfilters/dist/adblockdnslite.txt
+    name: 217heidai AdBlock DNS Filters Lite
     id: 1795178617
-  - enabled: true
-    url: https://easylist-downloads.adblockplus.org/easylist.txt
-    name: EasyList-去除国际网页中大多数广告，包括不需要的框架、图像和对象
-    id: 1795178616
-  - enabled: true
-    url: https://cdn.jsdelivr.net/gh/easylist/easylistchina@master/easylistchina.txt
-    name: EasyList China-EasyList针对国内的补充规则
-    id: 1795178618
-  - enabled: true
-    url: https://cdn.jsdelivr.net/gh/privacy-protection-tools/anti-AD@master/anti-ad-easylist.txt
-    name: anti-AD命中率最高列表
-    id: 1795178619
 whitelist_filters: []
 user_rules: []
 dhcp:
