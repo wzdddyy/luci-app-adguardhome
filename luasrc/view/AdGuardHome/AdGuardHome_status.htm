@@ -24,9 +24,13 @@
 		var dot = document.getElementById(id);
 		if (dot) dot.className = on ? 'agh-dot' : 'agh-dot agh-dot-off';
 	}
+	function vt(s){
+		s = (s === undefined || s === null) ? '' : ('' + s);
+		if (!s) return '—';
+		return /^\d/.test(s) ? 'v' + s : s;
+	}
 	function update(data){
 		var running = !!data.running;
-		var version = data.version || '—';
 		var port = data.port || 3000;
 		var dnsport = data.dnsport || 0;
 		var url = (data.tls ? 'https://' : 'http://') + window.location.hostname + ':' + port;
@@ -40,9 +44,8 @@
 		runValue.innerHTML = running
 			? '<%:RUNNING%>' + (data.uptime ? ' <span class="agh-unit">' + fmtUptime(data.uptime) + '</span>' : '')
 			: '<%:NOT RUNNING%>';
-		document.getElementById('agh-run-meta').textContent = running
-			? '<%:Core Version%> ' + version
-			: '<%:Stopped%>';
+		document.getElementById('agh-run-meta').innerHTML =
+			'<%:Plugin Version%> ' + vt(data.luci_version) + ' · <%:Core Version%> ' + vt(data.version);
 
 		var queries = data.queries, blocked = data.blocked;
 		var hasStats = running && typeof queries === 'number' && typeof blocked === 'number';
