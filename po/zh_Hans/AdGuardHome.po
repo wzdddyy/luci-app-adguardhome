@@ -29,7 +29,7 @@ msgid "Manual Config"
 msgstr "模版配置"
 
 msgid "Free and open source, powerful network-wide ads & trackers blocking DNS server."
-msgstr "全网络广告和跟踪程序拦截DNS服务器，默认账号：admin，密码：admin123"
+msgstr "全网络广告和跟踪程序拦截DNS服务器，默认账号：admin，密码：admin123。<a href='https://github.com/wzdddyy/luci-app-adguardhome' target='_blank'>项目地址</a>"
 
 msgid "RUNNING"
 msgstr "运行中"
@@ -129,6 +129,9 @@ msgstr "快速配置"
 
 msgid "Core Version"
 msgstr "核心版本"
+
+msgid "Plugin Version"
+msgstr "插件版本"
 
 msgid "Latest Version"
 msgstr "最新版"
@@ -238,54 +241,6 @@ msgstr "显示/隐藏密码"
 msgid "Press load culculate model and culculate finally save/apply"
 msgstr "先输入你想要的密码, 点击[载入计算模块], 然后点击[计算], 最后点击下方[保存&应用]"
 
-msgid "Keep files when system upgrade"
-msgstr "系统升级时保留文件"
-
-msgid "core bin"
-msgstr "核心执行文件"
-
-msgid "config file"
-msgstr "配置文件"
-
-msgid "log file"
-msgstr "日志文件"
-
-msgid "querylog.json"
-msgstr "审计日志.json"
-
-msgid "On boot when network ok restart"
-msgstr "开机后网络准备好时重启"
-
-msgid "Backup workdir files when shutdown"
-msgstr "在关机时备份工作目录文件"
-
-msgid "Will be restore when workdir/data is empty"
-msgstr "在工作目录/data为空的时候恢复"
-
-msgid "Backup workdir path"
-msgstr "工作目录备份路径"
-
-msgid "Crontab task"
-msgstr "计划任务"
-
-msgid "Auto update core"
-msgstr "自动升级核心"
-
-msgid "Auto tail querylog"
-msgstr "自动截短查询日志"
-
-msgid "Auto tail runtime log"
-msgstr "自动截短运行日志"
-
-msgid "Auto update ipv6 hosts and restart AdGuardHome"
-msgstr "自动更新 ipv6 hosts 并重启 AdGuardHome"
-
-msgid "Please change time and args in crontab"
-msgstr "请在计划任务中修改时间和参数"
-
-msgid "Core Update URL"
-msgstr "核心更新地址"
-
 msgid "reverse"
 msgstr "逆序"
 
@@ -322,14 +277,8 @@ msgstr "检查配置"
 msgid "unknown"
 msgstr "未知"
 
-msgid "Keep database when system upgrade"
-msgstr "系统升级时保留数据"
-
 msgid "Start up only when the network is normal"
 msgstr "开机网络正常才启动"
-
-msgid "Other Settings"
-msgstr "其它设置"
 
 msgid "Main Config"
 msgstr "主配置"
@@ -337,20 +286,8 @@ msgstr "主配置"
 msgid "Core Config"
 msgstr "核心配置"
 
-msgid "Other Config"
-msgstr "升级配置"
-
 msgid "Allow access from the Internet"
 msgstr "允许从互联网访问后台"
 
 msgid "Open the web management port in the firewall, change the default password before enabling"
 msgstr "在防火墙中放行网页管理端口，开启前请先修改默认密码"
-
-msgid "sessions.db"
-msgstr "会话数据库"
-
-msgid "stats.db"
-msgstr "统计数据库"
-
-msgid "filters"
-msgstr "规则集"
