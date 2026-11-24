@@ -3,7 +3,6 @@
 		"description": "Grant UCI access for luci-app-adguardhome",
 		"read": {
 		"file": {
-			"/usr/share/AdGuardHome/addhost.sh": [ "exec" ],
 			"/usr/share/AdGuardHome/AdGuardHome_template.yaml": [ "read" ],
 			"/usr/share/AdGuardHome/getsyslog.sh": [ "exec" ],
 			"/usr/share/AdGuardHome/update_core.sh": [ "exec" ],
