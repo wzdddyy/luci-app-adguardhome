@@ -6,11 +6,8 @@ START=95
 STOP=01
 
 CONFIGURATION=AdGuardHome
-CRON_FILE=/etc/crontabs/root
-EXTRA_COMMANDS="do_redirect testbackup test_crontab force_reload isrunning"
+EXTRA_COMMANDS="do_redirect force_reload isrunning"
 EXTRA_HELP="        do_redirect 0 or 1\
-        testbackup backup or restore\
-		test_crontab
 		force_reload
 		isrunning"
 
@@ -366,60 +363,6 @@ boot_service() {
 	fi
 }
 
-testbackup(){
-	config_load "${CONFIGURATION}"
-	if [ "$1" == "backup" ]; then
-		backup
-	elif [ "$1" == "restore" ]; then
-		restore
-	fi
-}
-
-restore()
-{
-	config_get workdir $CONFIGURATION workdir "/etc/AdGuardHome"
-	config_get backupwdpath $CONFIGURATION backupwdpath "/etc/AdGuardHome_backup"
-	cp -u -r -f "$backupwdpath/data" "$workdir"
-}
-
-backup() {
-	config_get backupwdpath $CONFIGURATION backupwdpath "/etc/AdGuardHome_backup"
-	config_get workdir $CONFIGURATION workdir "/etc/AdGuardHome"
-	config_get backupfile $CONFIGURATION backupfile ""
-	[ -n "$backupfile" ] || return
-	[ "$backupwdpath" = "$workdir" ] && echo "backup path is the same as workdir, skip" && return
-	mkdir -p "$backupwdpath/data"
-	for one in $backupfile;
-	do
-		retry=0
-		while [ "$retry" -lt 3 ];
-		do
-			retry=$((retry + 1))
-			if [ -d "$backupwdpath/data/$one" ]; then
-				cpret=$(cp -u -r -f "$workdir/data/$one" "$backupwdpath/data" 2>&1)
-			else
-				cpret=$(cp -u -r -f "$workdir/data/$one" "$backupwdpath/data/$one" 2>&1)
-			fi
-			echo "$cpret"
-			echo "$cpret" | grep "no space left on device"
-			if [ "$?" != "0" ]; then
-				break
-			fi
-			echo "磁盘已满,删除log重试中"
-			[ "$retry" -ge 3 ] && echo "backup failed" && break
-			del_querylog
-			rm -f -r "$backupwdpath/data/filters"
-			rm -f -r "$workdir/data/filters"
-		done
-	done
-}
-
-_add_upprotect_file()
-{
-	local file="$1"
-	local expanded_file=$(eval echo "$file")
-	echo "$expanded_file" >> /lib/upgrade/keep.d/luci-app-adguardhome
-}
 start_service() {
 	config_load "${CONFIGURATION}"
 	config_get hashpass $CONFIGURATION hashpass ""
@@ -443,7 +386,6 @@ start_service() {
 		config_load "${CONFIGURATION}"
 	fi
 	config_get_bool enabled $CONFIGURATION enabled 0
-	do_crontab
 	apply_web_access
 	echo "luci enable switch=$enabled"
 	if [ "$enabled" == "0" ]; then
@@ -456,10 +398,6 @@ start_service() {
 	fi
 	sed -i -r 's#^([[:space:]]*)ipset_file:[[:space:]]*.*/etc/AdGuardHome/ipset\.txt.*#\1ipset_file: ""#' "$configpath" 2>/dev/null
 	rm -f "$workdir/gfw.txt" "$workdir/ipset.txt" /tmp/doipset.sh
-	config_get backupfile $CONFIGURATION backupfile ""
-	if [ -n "$backupfile" ] && [ ! -d "$workdir/data" ]; then
-		restore
-	fi
 	mkdir -p $workdir/data
 	chmod 700 $workdir $workdir/data 2>/dev/null
 	local cwdfs=$(get_filesystem $workdir)
@@ -481,11 +419,6 @@ start_service() {
 
 	config_get binpath $CONFIGURATION binpath "/usr/bin/AdGuardHome"
 	config_get logfile $CONFIGURATION logfile ""
-	config_get upprotect $CONFIGURATION upprotect ""
-	if [ -n "$upprotect" ]; then
-		echo -n > /lib/upgrade/keep.d/luci-app-adguardhome
-		config_list_foreach $CONFIGURATION upprotect _add_upprotect_file
-	fi
 
 	mkdir -p ${binpath%/*}
 	if [ ! -f "$binpath" ]; then
@@ -550,36 +483,11 @@ reload_service()
 	start
 }
 
-del_querylog(){
-	local btarget=$(ls $backupwdpath/data | grep -F "querylog.json" | sort -r | head -n 1)
-	local wtarget=$(ls $workdir/data | grep -F "querylog.json" | sort -r | head -n 1)
-	if [ "$btarget"x == "$wtarget"x ]; then
-		[ -z "$btarget" ] && return 1
-		rm -f $workdir/data/$wtarget
-		rm -f $backupwdpath/data/$btarget
-		return 0
-	fi
-	if [ "$btarget" \> "$wtarget" ]; then
-		rm -f $backupwdpath/data/$btarget
-		return 0
-	else
-		rm -f $workdir/data/$wtarget
-		return 0
-	fi
-}
-
 stop_service()
 {
 	config_load "${CONFIGURATION}"
 	_do_redirect 0
-	do_crontab
 	clear_web_access
-	if [ "$1" != "nobackup" ]; then
-		config_get backupfile $CONFIGURATION backupfile ""
-		if [ -n "$backupfile" ]; then
-			backup
-		fi
-	fi
 	echo "AdGuardHome service disabled"
 }
 
@@ -587,75 +495,5 @@ boot() {
 	rc_procd boot_service "$@"
 	if eval "type service_started" 2>/dev/null >/dev/null; then
 		service_started
-	fi
-}
-
-test_crontab(){
-	config_load "${CONFIGURATION}"
-	do_crontab
-}
-
-do_crontab(){
-	config_get_bool enabled $CONFIGURATION enabled 0
-	config_get crontab $CONFIGURATION crontab ""
-	local findstr default cronenable replace
-	local cronreload=0
-	if grep -Eq "gfw2adg\.sh|gfwipset2adg\.sh" "$CRON_FILE" 2>/dev/null; then
-		sed -i '/gfw2adg\.sh/d;/gfwipset2adg\.sh/d' "$CRON_FILE"
-		cronreload=$((cronreload+1))
-	fi
-	findstr="/usr/share/AdGuardHome/update_core.sh"
-	default="30 3 * * * /usr/share/AdGuardHome/update_core.sh 2>&1"
-	[ "$enabled" == "0" ] || [ "${crontab//autoupdate/}" == "$crontab" ] && cronenable=0 || cronenable=1
-	crontab_editor
-
-	config_get workdir $CONFIGURATION workdir "/etc/AdGuardHome"
-	findstr="/usr/share/AdGuardHome/tailto.sh [0-9]* \$(uci get AdGuardHome.AdGuardHome.workdir)/data/querylog.json"
-	default="0 * * * * /usr/share/AdGuardHome/tailto.sh 2000 \$(uci get AdGuardHome.AdGuardHome.workdir)/data/querylog.json"
-	[ "$enabled" == "0" ] || [ "${crontab//cutquerylog/}" == "$crontab" ] && cronenable=0 || cronenable=1
-	crontab_editor
-
-	config_get logfile $CONFIGURATION logfile ""
-	findstr="/usr/share/AdGuardHome/tailto.sh [0-9]* \$(uci get AdGuardHome.AdGuardHome.logfile)"
-	default="30 3 * * * /usr/share/AdGuardHome/tailto.sh 2000 \$(uci get AdGuardHome.AdGuardHome.logfile)"
-	[ "$logfile" == "syslog" ] || [ "$logfile" == "" ] || [ "$enabled" == "0" ] || [ "${crontab//cutruntimelog/}" == "$crontab" ] && cronenable=0 || cronenable=1
-	crontab_editor
-
-	findstr="/usr/share/AdGuardHome/addhost.sh"
-	default="0 * * * * /usr/share/AdGuardHome/addhost.sh"
-	[ "$enabled" == "0" ] || [ "${crontab//autohost/}" == "$crontab" ] && cronenable=0 || cronenable=1
-	crontab_editor
-	[ "$cronenable" == "0" ] && /usr/share/AdGuardHome/addhost.sh "del" "noreload" || /usr/share/AdGuardHome/addhost.sh "" "noreload"
-
-	[ "$cronreload" -gt 0 ] && /etc/init.d/cron restart
-}
-
-crontab_editor(){
-	[ ! -f "$CRON_FILE" ] && mkdir -p ${CRON_FILE%/*} && touch "$CRON_FILE" && chmod 600 "$CRON_FILE"
-	local testline reload
-	local line="$(grep "$findstr" $CRON_FILE)"
-	[ -n "$replace" ] && [ -n "$line" ] && eval testline="\${line//$replace}" && [ "$testline" != "$line" ] && line="$testline" && reload="1" && replace=""
-	if [ "${line:0:1}" != "#" ]; then
-		if [ $cronenable -eq 1 ]; then
-			[ -z "$line" ] && line="$default" && reload="1"
-			if [ -n "$reload" ]; then
-				sed -i "\,$findstr,d" $CRON_FILE
-				echo "$line" >> $CRON_FILE
-				cronreload=$((cronreload+1))
-			fi
-		elif [ -n "$line" ]; then
-			sed -i "\,$findstr,d" $CRON_FILE
-			echo "#$line" >> $CRON_FILE
-			cronreload=$((cronreload+1))
-		fi
-	else
-		if [ $cronenable -eq 1 ]; then
-			sed -i "\,$findstr,d" $CRON_FILE
-			echo "${line:1}" >> $CRON_FILE
-			cronreload=$((cronreload+1))
-		elif [ -z "$reload" ]; then
-			sed -i "\,$findstr,d" $CRON_FILE
-			echo "$line" >> $CRON_FILE
-		fi
 	fi
 }
