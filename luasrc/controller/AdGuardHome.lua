@@ -151,6 +151,26 @@ local function agh_stats(port,tls,user,pass)
 	return nil
 end
 
+local function pkg_version(name)
+	local db="/usr/lib/opkg/status"
+	local apk=not fs.access(db)
+	if apk then db="/lib/apk/db/installed" end
+	local mt=tostring(fs.stat(db,"mtime") or "0")
+	local cache=fs.readfile("/tmp/AdGuardHome_luciver") or ""
+	local cmt,cver=cache:match("^(%S+)%s+(%S+)")
+	if cmt==mt and cver then return cver end
+	local ver
+	if apk then
+		ver=sys.exec("apk list --installed %s 2>/dev/null | awk '{print $1}' | head -n1 | sed 's/^%s-//'" % {name,name})
+	else
+		ver=sys.exec("opkg status %s 2>/dev/null | sed -n 's/^Version:[[:space:]]*//p' | head -n1" % name)
+	end
+	ver=(ver or ""):gsub("%s+$",""):gsub("%-r%d+$","")
+	if ver=="" then return "" end
+	fs.writefile("/tmp/AdGuardHome_luciver",mt.." "..ver)
+	return ver
+end
+
 function act_status()
 	local e={}
 	local binpath=uci:get("AdGuardHome","AdGuardHome","binpath") or "/usr/bin/AdGuardHome"
@@ -173,6 +193,7 @@ function act_status()
 		uci:commit("AdGuardHome")
 	end
 	e.version=version
+	e.luci_version=pkg_version("luci-app-adguardhome")
 	e.uptime=0
 	if e.running then
 		local pid=tonumber((sys.exec("pgrep %s 2>/dev/null" % util.shellquote(binpath)) or ""):match("%d+"))
