@@ -4,7 +4,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-adguardhome
-PKG_VERSION:=2.0.0.5
+PKG_VERSION:=2.0.0.8
 PKG_MAINTAINER:=<https://github.com/wzdddyy/luci-app-adguardhome>
 
 LUCI_TITLE:=LuCI app for AdGuardHome
@@ -42,6 +42,8 @@ define Package/$(PKG_NAME)/postinst
 	fi
 	rm -f /tmp/luci-indexcache
 	rm -f /tmp/luci-modulecache/*
+	sed -i '/AdGuardHome\/update_core\.sh/d;/AdGuardHome\/tailto\.sh/d;/AdGuardHome\/addhost\.sh/d' /etc/crontabs/root 2>/dev/null
+	/etc/init.d/cron restart >/dev/null 2>&1
 exit 0
 endef
 
